@@ -20,6 +20,9 @@ type DatasetRunFilterColumnLiterals = ExtractLiterals<
 const CLICKHOUSE_FILTER_COLUMNS: DatasetRunFilterColumnLiterals[] = [
   "Scores (categorical)",
   "Scores (numeric)",
+  "Run Item Coverage",
+  "Trace Count",
+  "Observation Count",
 ];
 const CLICKHOUSE_FILTER_COLUMNS_SET = new Set(CLICKHOUSE_FILTER_COLUMNS);
 
@@ -37,6 +40,27 @@ export function isClickhouseFilterColumn(column: string): boolean {
 }
 
 export const datasetRunsTableCols: ColumnDefinition[] = [
+  {
+    name: "Run Item Coverage",
+    id: "coveragePercent",
+    type: "number",
+    internal: "coveragePercent",
+    nullable: true,
+  },
+  {
+    name: "Trace Count",
+    id: "traceCount",
+    type: "number",
+    internal: "traceCount",
+    nullable: true,
+  },
+  {
+    name: "Observation Count",
+    id: "observationCount",
+    type: "number",
+    internal: "observationCount",
+    nullable: true,
+  },
   {
     name: "Scores (numeric)",
     id: "agg_scores_avg",

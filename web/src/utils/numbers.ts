@@ -24,6 +24,17 @@ export const numberFormatter = (
   }).format(number ?? 0);
 };
 
+export const percentFormatter = (
+  number?: number | bigint,
+  fractionDigits: number = 1,
+) => {
+  return Intl.NumberFormat("en-US", {
+    style: "percent",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(Number(number ?? 0) / 100);
+};
+
 const durationDivisors = [1, 1_000, 60_000, 3_600_000, 86_400_000] as const;
 
 const durationFormatters = [

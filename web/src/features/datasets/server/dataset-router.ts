@@ -22,6 +22,7 @@ import {
 } from "@langfuse/shared";
 import { TRPCError } from "@trpc/server";
 import {
+  datasetRunCoverageSummarySchema,
   datasetRunsTableSchema,
   datasetRunTableMetricsSchema,
   enrichAndMapToDatasetItemId,
@@ -589,6 +590,9 @@ export const datasetRouter = createTRPCRouter({
           name: run.name,
           // Use ClickHouse metrics if available, otherwise use defaults for runs without dataset_run_items_rmt
           countRunItems: run.countRunItems ?? 0,
+          traceCount: run.traceCount ?? 0,
+          observationCount: run.observationCount ?? 0,
+          coveragePercent: run.coveragePercent ?? 0,
           avgTotalCost: run.avgTotalCost ?? null,
           totalCost: run.totalCost ?? null,
           avgLatency: run.avgLatency ?? null,
@@ -603,6 +607,48 @@ export const datasetRouter = createTRPCRouter({
 
       return {
         runs: allRuns,
+      };
+    }),
+
+  runCoverageSummary: protectedProjectProcedure
+    .input(datasetRunCoverageSummarySchema)
+    .query(async ({ input, ctx }) => {
+      const [datasetItemCount, runsWithMetrics] = await Promise.all([
+        ctx.prisma.datasetItem.count({
+          where: {
+            datasetId: input.datasetId,
+            isDeleted: false,
+          },
+        }),
+        getDatasetRunsTableMetricsCh({
+          projectId: input.projectId,
+          datasetId: input.datasetId,
+          filter: input.filter ?? [],
+        }),
+      ]);
+
+      const completedRuns = runsWithMetrics.filter(
+        (run) => run.coveragePercent >= input.minimumCoveragePercent,
+      );
+      const totalRunItems = runsWithMetrics.reduce(
+        (total, run) => total + run.countRunItems,
+        0,
+      );
+      const averageCoverage =
+        runsWithMetrics.length > 0
+          ? runsWithMetrics.reduce(
+              (total, run) => total + run.coveragePercent,
+              0,
+            ) / runsWithMetrics.length
+          : 0;
+
+      return {
+        datasetItemCount,
+        totalRunItems,
+        runCount: runsWithMetrics.length,
+        completedRunCount: completedRuns.length,
+        incompleteRunCount: runsWithMetrics.length - completedRuns.length,
+        averageCoverage: Number(averageCoverage.toFixed(1)),
       };
     }),
 

@@ -94,6 +94,9 @@ export type DatasetRunsMetrics = {
   projectId: string;
   datasetId: string;
   countRunItems: number;
+  traceCount: number;
+  observationCount: number;
+  coveragePercent: number;
   avgTotalCost: Decimal;
   totalCost: Decimal;
   avgLatency: number;
@@ -117,6 +120,9 @@ type DatasetRunsMetricsRecordType = {
   project_id: string;
   dataset_id: string;
   count_run_items: number;
+  trace_count: number;
+  observation_count: number;
+  coverage_percent: number;
   avg_latency_seconds: number;
   avg_total_cost: number;
   total_cost: number;
@@ -165,6 +171,9 @@ const convertDatasetRunsMetricsRecord = (
     projectId: record.project_id,
     datasetId: record.dataset_id,
     countRunItems: record.count_run_items,
+    traceCount: record.trace_count ?? 0,
+    observationCount: record.observation_count ?? 0,
+    coveragePercent: Number((record.coverage_percent ?? 0).toFixed(1)),
     avgTotalCost: record.avg_total_cost
       ? new Decimal(record.avg_total_cost)
       : new Decimal(0),
@@ -255,6 +264,9 @@ const getDatasetRunsTableInternal = async <T>(
         drm.dataset_run_id as dataset_run_id,
         drm.dataset_run_name as dataset_run_name,
         drm.count_run_items as count_run_items,
+        drm.trace_count as trace_count,
+        drm.observation_count as observation_count,
+        drm.coverage_percent as coverage_percent,
         
         -- Latency metrics (priority: trace > observation - matching old PostgreSQL behavior)
         CASE
@@ -435,6 +447,12 @@ const getDatasetRunsTableInternal = async <T>(
         dri.dataset_run_description as dataset_run_description,
         dri.dataset_run_metadata as dataset_run_metadata,
         count(DISTINCT dri.project_id, dri.dataset_id, dri.dataset_run_id, dri.dataset_item_id) as count_run_items,
+        count(DISTINCT dri.trace_id) as trace_count,
+        count(DISTINCT dri.observation_id) as observation_count,
+        round(
+          count(DISTINCT dri.dataset_item_id) / greatest(count(), 1) * 100,
+          1
+        ) as coverage_percent,
 
         -- Trace-level metrics (average across traces in this dataset run)
         AVG(CASE WHEN dri.observation_id IS NULL THEN tm.latency_ms ELSE NULL END) / 1000.0 as trace_avg_latency,
