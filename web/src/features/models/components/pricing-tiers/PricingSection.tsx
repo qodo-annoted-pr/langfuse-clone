@@ -1,10 +1,16 @@
 import { PlusCircle } from "lucide-react";
+import { useMemo } from "react";
 import { Button } from "@/src/components/ui/button";
 import { FormDescription, FormLabel } from "@/src/components/ui/form";
 import { Accordion } from "@/src/components/ui/accordion";
 import { TierAccordionItem } from "./TierAccordionItem";
 import { TierPriceEditor } from "./TierPriceEditor";
 import { TierPrefillButtons } from "./TierPrefillButtons";
+import {
+  DEFAULT_SAMPLE_USAGE,
+  estimateCostFromPrices,
+  formatEstimatedCost,
+} from "@/src/features/models/utils";
 import type { UseFormReturn, UseFieldArrayReturn } from "react-hook-form";
 import type { FormUpsertModel } from "../../validation";
 
@@ -25,6 +31,36 @@ export function PricingSection({
 }: PricingSectionProps) {
   const hasMultipleTiers = fields.length > 1;
   const defaultTierIndex = fields.findIndex((f) => f.isDefault);
+  const defaultTierPrices =
+    defaultTierIndex >= 0
+      ? form.watch(`pricingTiers.${defaultTierIndex}.prices`)
+      : {};
+  const defaultTierEstimate = useMemo(() => {
+    return estimateCostFromPrices(defaultTierPrices ?? {}, DEFAULT_SAMPLE_USAGE);
+  }, [defaultTierPrices]);
+  const customTierCount = fields.filter((field) => !field.isDefault).length;
+
+  const pricingSummary = (
+    <div className="rounded-md border bg-muted/20 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium">Sample cost estimate</div>
+          <div className="text-muted-foreground text-xs">
+            Based on 1,000 input units, 1,000 output units, and 2,000 total
+            units.
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-sm font-semibold">
+            {formatEstimatedCost(defaultTierEstimate)}
+          </div>
+          <div className="text-muted-foreground text-xs">
+            {customTierCount} custom tier{customTierCount === 1 ? "" : "s"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   if (!hasMultipleTiers) {
     // SIMPLE VIEW: Just show prices for the single default tier
@@ -39,6 +75,7 @@ export function PricingSection({
         </div>
 
         <TierPrefillButtons tierIndex={defaultTierIndex} form={form} />
+        {pricingSummary}
         <TierPriceEditor
           tierIndex={defaultTierIndex}
           form={form}
@@ -80,6 +117,8 @@ export function PricingSection({
           />
         ))}
       </Accordion>
+
+      {pricingSummary}
 
       <Button type="button" variant="outline" onClick={addTier}>
         <PlusCircle className="mr-2 h-4 w-4" />

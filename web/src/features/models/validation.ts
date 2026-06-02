@@ -21,6 +21,14 @@ export const PriceMapSchema = PriceMapInputSchema.transform((obj) => {
   ) as Record<string, number>;
 }).pipe(z.record(UsageTypeSchema, PriceSchema));
 
+export const SampleUsageSchema = z.object({
+  input: z.coerce.number().int().nonnegative().default(1000),
+  output: z.coerce.number().int().nonnegative().default(1000),
+  total: z.coerce.number().int().nonnegative().default(2000),
+});
+
+export type SampleUsage = z.infer<typeof SampleUsageSchema>;
+
 export const PricingTierSchema = z.object({
   id: z.string(),
   name: z.string(),
