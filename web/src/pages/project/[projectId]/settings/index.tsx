@@ -225,7 +225,7 @@ export const getProjectSettingsPages = ({
     title: "Notifications",
     slug: "notifications",
     cmdKKeywords: ["inbox", "email", "mention", "alert"],
-    content: <NotificationSettings />,
+    content: <NotificationSettings projectId={project.id} />,
   },
   {
     title: "Billing",
