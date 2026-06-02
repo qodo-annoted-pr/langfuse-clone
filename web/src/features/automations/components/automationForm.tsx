@@ -182,6 +182,8 @@ export const AutomationForm = ({
           apiVersion: webhookDefaults.webhook.apiVersion || {
             prompt: "v1" as const,
           },
+          timeoutSeconds: webhookDefaults.webhook.timeoutSeconds || 10,
+          retryCount: webhookDefaults.webhook.retryCount || 2,
         },
       };
     } else if (actionType === "SLACK") {

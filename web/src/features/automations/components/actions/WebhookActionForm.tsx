@@ -67,6 +67,8 @@ export const webhookSchema = z.object({
     }),
   ),
   apiVersion: AvailableWebhookApiSchema,
+  timeoutSeconds: z.coerce.number().min(1).max(120).default(10),
+  retryCount: z.coerce.number().min(0).max(5).default(2),
 });
 
 export type WebhookFormValues = z.infer<typeof webhookSchema>;
@@ -77,6 +79,51 @@ interface WebhookActionFormProps {
   projectId: string;
   action?: ActionDomain | ActionDomainWithSecrets;
 }
+
+const WebhookDeliverySummary = ({
+  url,
+  timeoutSeconds,
+  retryCount,
+  customHeaderCount,
+}: {
+  url?: string;
+  timeoutSeconds?: number;
+  retryCount?: number;
+  customHeaderCount: number;
+}) => {
+  const host = (() => {
+    try {
+      return url ? new URL(url).host : "Not configured";
+    } catch {
+      return "Invalid URL";
+    }
+  })();
+  const attempts = (retryCount ?? 0) + 1;
+
+  return (
+    <div className="rounded-md border bg-muted/20 p-3">
+      <FormLabel>Delivery summary</FormLabel>
+      <div className="mt-2 grid grid-cols-1 gap-2 text-sm md:grid-cols-4">
+        <div>
+          <div className="text-muted-foreground">Host</div>
+          <div className="truncate font-medium">{host}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Timeout</div>
+          <div className="font-medium">{timeoutSeconds ?? 10}s</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Attempts</div>
+          <div className="font-medium">{attempts}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Custom headers</div>
+          <div className="font-medium">{customHeaderCount}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const WebhookActionForm: React.FC<WebhookActionFormProps> = ({
   form,
@@ -101,6 +148,9 @@ export const WebhookActionForm: React.FC<WebhookActionFormProps> = ({
     const headerName = form.watch(`webhook.headers.${index}.name`);
     return !defaultHeaderKeys.includes(headerName?.toLowerCase());
   });
+  const webhookUrl = form.watch("webhook.url");
+  const timeoutSeconds = form.watch("webhook.timeoutSeconds");
+  const retryCount = form.watch("webhook.retryCount");
 
   // Function to add a new header pair
   const addHeader = () => {
@@ -174,6 +224,63 @@ export const WebhookActionForm: React.FC<WebhookActionFormProps> = ({
           </FormItem>
         )}
       />
+
+      <WebhookDeliverySummary
+        url={webhookUrl}
+        timeoutSeconds={timeoutSeconds}
+        retryCount={retryCount}
+        customHeaderCount={customHeaderFields.length}
+      />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <FormField
+          control={form.control}
+          name="webhook.timeoutSeconds"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Request timeout</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={1}
+                  max={120}
+                  step={1}
+                  disabled={disabled}
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Maximum time in seconds to wait for a webhook response.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="webhook.retryCount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Retry attempts</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={0}
+                  max={5}
+                  step={1}
+                  disabled={disabled}
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Number of retry attempts after the first delivery fails.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
 
       <div>
         <FormLabel>Headers</FormLabel>
