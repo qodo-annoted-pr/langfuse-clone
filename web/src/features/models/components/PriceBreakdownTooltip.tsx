@@ -10,7 +10,12 @@ import {
   TooltipTrigger,
 } from "@/src/components/ui/tooltip";
 import { usePriceUnitMultiplier } from "@/src/features/models/hooks/usePriceUnitMultiplier";
-import { getMaxDecimals } from "@/src/features/models/utils";
+import {
+  DEFAULT_SAMPLE_USAGE,
+  estimateCostFromPrices,
+  formatEstimatedCost,
+  getMaxDecimals,
+} from "@/src/features/models/utils";
 import { type PriceUnit } from "@/src/features/models/validation";
 
 export const PriceBreakdownTooltip = ({
@@ -26,6 +31,9 @@ export const PriceBreakdownTooltip = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const { priceUnitMultiplier } = usePriceUnitMultiplier();
+  const estimatedSampleCost = useMemo(() => {
+    return estimateCostFromPrices(prices ?? {}, DEFAULT_SAMPLE_USAGE);
+  }, [prices]);
 
   const maxDecimals = useMemo(
     () =>
@@ -85,6 +93,14 @@ export const PriceBreakdownTooltip = ({
                   </span>
                 </div>
                 <div className="flex flex-col gap-2">
+                  <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="text-muted-foreground text-xs">
+                      Estimated sample cost
+                    </div>
+                    <div className="font-mono text-sm font-semibold">
+                      {formatEstimatedCost(estimatedSampleCost)}
+                    </div>
+                  </div>
                   <div className="flex justify-between font-mono text-xs font-semibold">
                     <span className="mr-4">Usage Type</span>
                     <span>Price {priceUnit}</span>
