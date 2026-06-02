@@ -20,6 +20,7 @@ import {
   optionalPaginationZod,
   paginationZod,
   PromptLabelSchema,
+  PromptVersionSummaryInputSchema,
   promptsTableCols,
   PromptType,
   StringNoHTMLNonEmpty,
@@ -273,6 +274,58 @@ export const promptRouter = createTRPCRouter({
         promptName,
         observationCount: count,
       }));
+    }),
+  versionSummary: protectedProjectProcedure
+    .input(PromptVersionSummaryInputSchema)
+    .query(async ({ input, ctx }) => {
+      throwIfNoProjectAccess({
+        session: ctx.session,
+        projectId: input.projectId,
+        scope: "prompts:read",
+      });
+
+      const labelFilter = input.label
+        ? Prisma.sql`AND ${input.label} = ANY(labels)`
+        : Prisma.empty;
+      const nameFilter = input.name
+        ? Prisma.sql`AND name ILIKE ${`%${input.name}%`}`
+        : Prisma.empty;
+      const archivedFilter = input.includeArchived
+        ? Prisma.empty
+        : Prisma.sql`AND NOT ('archived' = ANY(labels))`;
+
+      const [summary] = await ctx.prisma.$queryRaw<
+        Array<{
+          promptCount: bigint;
+          versionCount: bigint;
+          textPromptCount: bigint;
+          chatPromptCount: bigint;
+          latestVersion: number | null;
+          protectedLabelCount: bigint;
+        }>
+      >`
+        SELECT
+          COUNT(DISTINCT name) AS "promptCount",
+          COUNT(*) AS "versionCount",
+          COUNT(*) FILTER (WHERE type = 'text') AS "textPromptCount",
+          COUNT(*) FILTER (WHERE type = 'chat') AS "chatPromptCount",
+          MAX(version) AS "latestVersion",
+          COUNT(*) FILTER (WHERE cardinality(labels) > 0) AS "protectedLabelCount"
+        FROM prompts
+        WHERE project_id = ${input.projectId}
+        ${labelFilter}
+        ${nameFilter}
+        ${archivedFilter};
+      `;
+
+      return {
+        promptCount: Number(summary?.promptCount ?? 0),
+        versionCount: Number(summary?.versionCount ?? 0),
+        textPromptCount: Number(summary?.textPromptCount ?? 0),
+        chatPromptCount: Number(summary?.chatPromptCount ?? 0),
+        latestVersion: summary?.latestVersion ?? 0,
+        protectedLabelCount: Number(summary?.protectedLabelCount ?? 0),
+      };
     }),
   byId: protectedProjectProcedure
     .input(

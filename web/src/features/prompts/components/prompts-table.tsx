@@ -29,6 +29,7 @@ import { useFolderPagination } from "@/src/features/folders/hooks/useFolderPagin
 import { buildFullPath } from "@/src/features/folders/utils";
 import { FolderBreadcrumb } from "@/src/features/folders/components/FolderBreadcrumb";
 import { FolderBreadcrumbLink } from "@/src/features/folders/components/FolderBreadcrumbLink";
+import { PromptVersionSummary } from "@/src/features/prompts/components/PromptVersionSummary";
 
 type PromptTableRow = {
   id: string;
@@ -131,6 +132,21 @@ export function PromptTable() {
     {
       enabled:
         Boolean(projectId) && prompts.data && prompts.data.totalCount > 0,
+      trpc: {
+        context: {
+          skipBatch: true,
+        },
+      },
+    },
+  );
+  const promptVersionSummary = api.prompts.versionSummary.useQuery(
+    {
+      projectId,
+      name: searchQuery || undefined,
+      includeArchived: false,
+    },
+    {
+      enabled: Boolean(projectId),
       trpc: {
         context: {
           skipBatch: true,
@@ -437,6 +453,11 @@ export function PromptTable() {
               output: false,
             },
           }}
+        />
+        <PromptVersionSummary
+          summary={promptVersionSummary.data}
+          isLoading={promptVersionSummary.isLoading}
+          label={searchQuery || currentFolderPath || undefined}
         />
 
         {/* Content area with sidebar and table */}
