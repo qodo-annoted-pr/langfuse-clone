@@ -29,6 +29,8 @@ export const WebhookActionFormSchema = z.object({
       )
       .default([]),
     apiVersion: AvailableWebhookApiSchema.default({ prompt: "v1" }),
+    timeoutSeconds: z.coerce.number().min(1).max(120).default(10),
+    retryCount: z.coerce.number().min(0).max(5).default(2),
   }),
 });
 
@@ -75,6 +77,9 @@ export class WebhookActionHandler implements BaseActionHandler<WebhookActionForm
   getDefaultValues(automation?: AutomationDomain): WebhookActionFormData {
     // Extract apiVersion from existing config
     let apiVersion = { prompt: "v1" } as const;
+    let timeoutSeconds = 10;
+    let retryCount = 2;
+
     if (
       automation?.action?.type === "WEBHOOK" &&
       automation?.action?.config &&
@@ -82,6 +87,22 @@ export class WebhookActionHandler implements BaseActionHandler<WebhookActionForm
       automation.action.config.apiVersion
     ) {
       apiVersion = automation.action.config.apiVersion;
+    }
+    if (
+      automation?.action?.type === "WEBHOOK" &&
+      automation?.action?.config &&
+      "timeoutMs" in automation.action.config &&
+      automation.action.config.timeoutMs
+    ) {
+      timeoutSeconds = Math.round(automation.action.config.timeoutMs / 1000);
+    }
+    if (
+      automation?.action?.type === "WEBHOOK" &&
+      automation?.action?.config &&
+      "retryCount" in automation.action.config &&
+      automation.action.config.retryCount
+    ) {
+      retryCount = automation.action.config.retryCount;
     }
 
     return {
@@ -94,6 +115,8 @@ export class WebhookActionHandler implements BaseActionHandler<WebhookActionForm
           "",
         headers: this.parseHeaders(automation),
         apiVersion,
+        timeoutSeconds,
+        retryCount,
       },
     };
   }
@@ -106,6 +129,12 @@ export class WebhookActionHandler implements BaseActionHandler<WebhookActionForm
 
     if (!formData.webhook?.url) {
       errors.push("Webhook URL is required");
+    }
+    if (formData.webhook.timeoutSeconds < 1) {
+      errors.push("Webhook timeout must be at least 1 second");
+    }
+    if (formData.webhook.retryCount > 5) {
+      errors.push("Webhook retry count cannot exceed 5");
     }
 
     // Validate headers
@@ -172,6 +201,8 @@ export class WebhookActionHandler implements BaseActionHandler<WebhookActionForm
       url: formData.webhook?.url || "",
       requestHeaders: headersObject,
       apiVersion: formData.webhook?.apiVersion || { prompt: "v1" },
+      timeoutMs: formData.webhook.timeoutSeconds * 1000,
+      retryCount: formData.webhook.retryCount,
     };
   }
 

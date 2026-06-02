@@ -25,6 +25,25 @@ interface WebhookConfigOptions {
   projectId: string;
 }
 
+const DEFAULT_WEBHOOK_TIMEOUT_MS = 10_000;
+const DEFAULT_WEBHOOK_RETRY_COUNT = 2;
+
+function normalizeWebhookDeliverySettings(
+  actionConfig: WebhookActionCreate,
+  existingConfig: WebhookActionConfigWithSecrets | undefined,
+) {
+  return {
+    timeoutMs:
+      actionConfig.timeoutMs ??
+      existingConfig?.timeoutMs ??
+      DEFAULT_WEBHOOK_TIMEOUT_MS,
+    retryCount:
+      actionConfig.retryCount ||
+      existingConfig?.retryCount ||
+      DEFAULT_WEBHOOK_RETRY_COUNT,
+  };
+}
+
 export async function processWebhookActionConfig({
   actionConfig,
   actionId,
@@ -71,9 +90,15 @@ export async function processWebhookActionConfig({
     actionConfig,
     existingActionConfig,
   );
+  const deliverySettings = normalizeWebhookDeliverySettings(
+    actionConfig,
+    existingActionConfig,
+  );
+
   return {
     finalActionConfig: {
       ...finalActionConfig,
+      ...deliverySettings,
       secretKey: existingActionConfig?.secretKey ?? encrypt(newSecretKey),
       displaySecretKey:
         existingActionConfig?.displaySecretKey ?? newDisplaySecretKey,
@@ -164,6 +189,8 @@ function processWebhookHeaders(
     headers: {}, // remove legacy headers on write
     requestHeaders: encryptSecretHeaders(finalRequestHeaders),
     displayHeaders: createDisplayHeaders(finalRequestHeaders),
+    timeoutMs: actionConfig.timeoutMs,
+    retryCount: actionConfig.retryCount,
     secretKey: "", // will be overwritten by the caller
     displaySecretKey: "", // will be overwritten by the caller
     lastFailingExecutionId: existingConfig?.lastFailingExecutionId,

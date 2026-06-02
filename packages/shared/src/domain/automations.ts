@@ -59,6 +59,8 @@ export const WebhookActionConfigSchema = z.object({
   requestHeaders: z.record(z.string(), RequestHeaderSchema).optional(), // might not exist on legacy webhooks
   displayHeaders: z.record(z.string(), RequestHeaderSchema).optional(), // might not exist on legacy webhooks
   apiVersion: AvailableWebhookApiSchema,
+  timeoutMs: z.number().min(500).optional(),
+  retryCount: z.number().min(0).max(5).optional(),
   secretKey: z.string(),
   displaySecretKey: z.string(),
   lastFailingExecutionId: z.string().nullish(),
@@ -203,6 +205,8 @@ export function convertToSafeWebhookConfig(
     url: webhookConfig.url,
     displayHeaders: webhookConfig.displayHeaders,
     apiVersion: webhookConfig.apiVersion,
+    timeoutMs: webhookConfig.timeoutMs,
+    retryCount: webhookConfig.retryCount,
     displaySecretKey: webhookConfig.displaySecretKey,
     lastFailingExecutionId: webhookConfig.lastFailingExecutionId,
   };
