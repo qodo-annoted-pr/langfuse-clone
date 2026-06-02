@@ -89,6 +89,26 @@ export const GetPromptsMetaSchema = z.object({
 
 export type GetPromptsMetaType = z.infer<typeof GetPromptsMetaSchema>;
 
+export const PromptVersionSummaryInputSchema = z.object({
+  projectId: z.string(),
+  name: z.string().optional(),
+  label: z.string().optional(),
+  includeArchived: z.boolean().default(true),
+});
+
+export type PromptVersionSummaryInput = z.infer<
+  typeof PromptVersionSummaryInputSchema
+>;
+
+export type PromptVersionSummary = {
+  promptCount: number;
+  versionCount: number;
+  textPromptCount: number;
+  chatPromptCount: number;
+  latestVersion: number;
+  protectedLabelCount: number;
+};
+
 export const GetPromptSchema = z.object({
   name: z.string().transform((v) => decodeURIComponent(v)),
   version: z.coerce.number().int().nullish(),
