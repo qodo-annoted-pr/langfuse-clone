@@ -193,6 +193,48 @@ export const automationsRouter = createTRPCRouter({
       return automation;
     }),
 
+  getWebhookDeliverySettings: protectedProjectProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        actionId: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      throwIfNoProjectAccess({
+        session: ctx.session,
+        projectId: input.projectId,
+        scope: "automations:read",
+      });
+
+      const action = await getActionById({
+        projectId: input.projectId,
+        actionId: input.actionId,
+      });
+
+      if (!action || action.type !== "WEBHOOK") {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Webhook action with id ${input.actionId} not found.`,
+        });
+      }
+
+      if (!isSafeWebhookActionConfig(action.config)) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Invalid webhook configuration for action ${input.actionId}`,
+        });
+      }
+
+      return {
+        url: action.config.url,
+        timeoutMs: action.config.timeoutMs ?? 10_000,
+        retryCount: action.config.retryCount ?? 2,
+        customHeaderCount: Object.keys(action.config.displayHeaders ?? {})
+          .length,
+      };
+    }),
+
   // Get execution history for an automation
   getAutomationExecutions: protectedProjectProcedure
     .input(
