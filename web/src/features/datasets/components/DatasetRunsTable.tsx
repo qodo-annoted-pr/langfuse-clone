@@ -7,7 +7,11 @@ import { formatIntervalSeconds } from "@/src/utils/dates";
 import { useQueryParams, withDefault, NumberParam } from "use-query-params";
 import { type RouterOutput } from "@/src/utils/types";
 import { useEffect, useMemo, useState } from "react";
-import { usdFormatter } from "@/src/utils/numbers";
+import {
+  numberFormatter,
+  percentFormatter,
+  usdFormatter,
+} from "@/src/utils/numbers";
 import { DataTableToolbar } from "@/src/components/table/data-table-toolbar";
 import useColumnVisibility from "@/src/features/column-visibility/hooks/useColumnVisibility";
 import { type Prisma, datasetRunsTableColsWithOptions } from "@langfuse/shared";
@@ -72,6 +76,9 @@ export type DatasetRunRowData = {
   name: string;
   createdAt: Date;
   countRunItems: string;
+  traceCount: number;
+  observationCount: number;
+  coveragePercent: number;
   avgLatency: number | undefined;
   avgTotalCost: string | undefined;
   totalCost: string | undefined;
@@ -181,6 +188,55 @@ const DatasetRunTableMultiSelectAction = ({
   );
 };
 
+const DatasetRunCoverageSummary = ({
+  summary,
+  isLoading,
+}: {
+  summary?: RouterOutput["datasets"]["runCoverageSummary"];
+  isLoading: boolean;
+}) => {
+  const items = [
+    {
+      label: "Dataset items",
+      value: numberFormatter(summary?.datasetItemCount ?? 0, 0),
+    },
+    {
+      label: "Run items",
+      value: numberFormatter(summary?.totalRunItems ?? 0, 0),
+    },
+    {
+      label: "Avg. coverage",
+      value: percentFormatter(summary?.averageCoverage ?? 0),
+    },
+    {
+      label: "Complete runs",
+      value: numberFormatter(summary?.completedRunCount ?? 0, 0),
+    },
+    {
+      label: "Needs items",
+      value: numberFormatter(summary?.incompleteRunCount ?? 0, 0),
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-2 border-b px-3 py-2 md:grid-cols-5">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="flex min-h-14 flex-col justify-center rounded-md border bg-muted/20 px-3"
+        >
+          <span className="text-xs text-muted-foreground">{item.label}</span>
+          {isLoading ? (
+            <Skeleton className="mt-1 h-4 w-16" />
+          ) : (
+            <span className="text-sm font-medium">{item.value}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export function DatasetRunsTable(props: {
   projectId: string;
   datasetId: string;
@@ -245,6 +301,17 @@ export function DatasetRunsTable(props: {
       projectId: props.projectId,
       datasetId: props.datasetId,
       runIds: runs.data?.runs.map((r) => r.id) ?? [],
+      filter: userFilterState,
+    },
+    {
+      enabled: runs.isSuccess,
+    },
+  );
+
+  const coverageSummary = api.datasets.runCoverageSummary.useQuery(
+    {
+      projectId: props.projectId,
+      datasetId: props.datasetId,
       filter: userFilterState,
     },
     {
@@ -442,6 +509,50 @@ export function DatasetRunsTable(props: {
       },
     },
     {
+      accessorKey: "coveragePercent",
+      header: "Run Item Coverage",
+      id: "coveragePercent",
+      size: 130,
+      enableHiding: true,
+      cell: ({ row }) => {
+        const coveragePercent: DatasetRunRowData["coveragePercent"] =
+          row.getValue("coveragePercent");
+        if (coveragePercent === undefined || runsMetrics.isPending)
+          return <Skeleton className="h-3 w-1/2" />;
+        return <>{percentFormatter(coveragePercent)}</>;
+      },
+    },
+    {
+      accessorKey: "traceCount",
+      header: "Traces",
+      id: "traceCount",
+      size: 90,
+      enableHiding: true,
+      defaultHidden: true,
+      cell: ({ row }) => {
+        const traceCount: DatasetRunRowData["traceCount"] =
+          row.getValue("traceCount");
+        if (traceCount === undefined || runsMetrics.isPending)
+          return <Skeleton className="h-3 w-1/2" />;
+        return <>{numberFormatter(traceCount, 0)}</>;
+      },
+    },
+    {
+      accessorKey: "observationCount",
+      header: "Observations",
+      id: "observationCount",
+      size: 110,
+      enableHiding: true,
+      defaultHidden: true,
+      cell: ({ row }) => {
+        const observationCount: DatasetRunRowData["observationCount"] =
+          row.getValue("observationCount");
+        if (observationCount === undefined || runsMetrics.isPending)
+          return <Skeleton className="h-3 w-1/2" />;
+        return <>{numberFormatter(observationCount, 0)}</>;
+      },
+    },
+    {
       accessorKey: "avgLatency",
       header: "Latency (avg)",
       id: "avgLatency",
@@ -570,6 +681,9 @@ export function DatasetRunsTable(props: {
       name: item.name,
       createdAt: item.createdAt,
       countRunItems: item.countRunItems?.toString() ?? "0",
+      traceCount: item.traceCount ?? 0,
+      observationCount: item.observationCount ?? 0,
+      coveragePercent: item.coveragePercent ?? 0,
       avgLatency: item.avgLatency ?? 0,
       avgTotalCost: item.avgTotalCost
         ? usdFormatter(item.avgTotalCost.toNumber())
@@ -737,6 +851,10 @@ export function DatasetRunsTable(props: {
                 ) : null,
               ]}
             />
+            <DatasetRunCoverageSummary
+              summary={coverageSummary.data}
+              isLoading={coverageSummary.isPending}
+            />
             <DataTable
               tableName={"datasetRuns"}
               columns={columns}
@@ -800,6 +918,10 @@ export function DatasetRunsTable(props: {
                 />
               ) : null,
             ]}
+          />
+          <DatasetRunCoverageSummary
+            summary={coverageSummary.data}
+            isLoading={coverageSummary.isPending}
           />
           <DataTable
             tableName={"datasetRuns"}
