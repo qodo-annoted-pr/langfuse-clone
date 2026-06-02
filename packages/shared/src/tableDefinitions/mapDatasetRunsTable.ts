@@ -14,6 +14,24 @@ export const datasetRunsTableUiColumnDefinitions: UiColumnMappings = [
     clickhouseSelect: "drm.dataset_run_created_at",
   },
   {
+    uiTableName: "Run Item Coverage",
+    uiTableId: "coveragePercent",
+    clickhouseTableName: "dataset_run_items_rmt",
+    clickhouseSelect: "drm.coverage_percent",
+  },
+  {
+    uiTableName: "Trace Count",
+    uiTableId: "traceCount",
+    clickhouseTableName: "dataset_run_items_rmt",
+    clickhouseSelect: "drm.trace_count",
+  },
+  {
+    uiTableName: "Observation Count",
+    uiTableId: "observationCount",
+    clickhouseTableName: "dataset_run_items_rmt",
+    clickhouseSelect: "drm.observation_count",
+  },
+  {
     uiTableName: "Scores (numeric)",
     uiTableId: "agg_scores_avg",
     clickhouseTableName: "dataset_run_items_rmt",

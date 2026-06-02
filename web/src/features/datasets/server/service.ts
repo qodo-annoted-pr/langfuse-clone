@@ -38,9 +38,19 @@ export const datasetRunTableMetricsSchema = z.object({
   filter: z.array(singleFilter),
 });
 
+export const datasetRunCoverageSummarySchema = z.object({
+  projectId: z.string(),
+  datasetId: z.string(),
+  filter: z.array(singleFilter).default([]),
+  minimumCoveragePercent: z.number().min(0).max(100).default(80),
+});
+
 export type DatasetRunsTableInput = z.infer<typeof datasetRunsTableSchema>;
 export type DatasetRunTableMetricsInput = z.infer<
   typeof datasetRunTableMetricsSchema
+>;
+export type DatasetRunCoverageSummaryInput = z.infer<
+  typeof datasetRunCoverageSummarySchema
 >;
 
 export type DatasetRunItemsTableInput = {
