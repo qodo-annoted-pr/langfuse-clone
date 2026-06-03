@@ -19,6 +19,9 @@ interface CommentMentionEmailTemplateProps {
   mentionedUserEmail: string;
   authorName?: string; // Optional - undefined if author deleted or not project member
   projectName: string;
+  commentContextLabel?: string;
+  commentObjectTypeLabel?: string;
+  commentObjectReference?: string;
   commentPreview: string;
   commentLink: string;
   settingsLink: string;
@@ -29,6 +32,9 @@ export const CommentMentionEmailTemplate = ({
   mentionedUserEmail,
   authorName,
   projectName,
+  commentContextLabel,
+  commentObjectTypeLabel,
+  commentObjectReference,
   commentPreview,
   commentLink,
   settingsLink,
@@ -77,6 +83,36 @@ export const CommentMentionEmailTemplate = ({
                 </>
               )}
             </Text>
+            {commentContextLabel && (
+              <Section className="my-4 rounded border border-solid border-[#eaeaea] bg-[#fffdf5] p-4">
+                <Text className="m-0 text-xs font-semibold uppercase tracking-wide text-[#666666]">
+                  Comment context
+                </Text>
+                <Text className="m-0 mt-1 text-sm leading-6 text-black">
+                  {commentContextLabel}
+                </Text>
+                {(commentObjectTypeLabel || commentObjectReference) && (
+                  <Section className="mt-3">
+                    {commentObjectTypeLabel && (
+                      <Text className="m-0 text-xs leading-5 text-[#666666]">
+                        Type:{" "}
+                        <span className="text-black">
+                          {commentObjectTypeLabel}
+                        </span>
+                      </Text>
+                    )}
+                    {commentObjectReference && (
+                      <Text className="m-0 text-xs leading-5 text-[#666666]">
+                        Reference:{" "}
+                        <span className="text-black">
+                          {commentObjectReference}
+                        </span>
+                      </Text>
+                    )}
+                  </Section>
+                )}
+              </Section>
+            )}
             <Section className="my-6 rounded border border-solid border-[#eaeaea] bg-[#f8f9fa] p-4">
               <Text
                 className="m-0 text-sm leading-6 text-[#333333]"

@@ -14,6 +14,57 @@ type CommentMentionPayload = Omit<
   "type"
 >;
 
+function formatCommentObjectType(
+  objectType: string | null | undefined,
+): string {
+  switch (objectType) {
+    case "TRACE":
+      return "trace";
+    case "OBSERVATION":
+      return "observation";
+    case "SESSION":
+      return "session";
+    case "PROMPT":
+      return "prompt";
+    default:
+      return "object";
+  }
+}
+
+function buildCommentContextLabel({
+  objectType,
+  objectId,
+  dataField,
+}: {
+  objectType?: string | null;
+  objectId?: string | null;
+  dataField?: string | null;
+}) {
+  const objectTypeLabel = formatCommentObjectType(objectType);
+  const objectSuffix = objectId ? ` ${objectId.slice(0, 8)}` : "";
+  const fieldSuffix = dataField ? ` (${dataField})` : "";
+
+  return `${objectTypeLabel}${objectSuffix}${fieldSuffix}`;
+}
+
+function buildCommentContextDetails({
+  objectType,
+  objectId,
+  dataField,
+}: {
+  objectType?: string | null;
+  objectId?: string | null;
+  dataField?: string | null;
+}) {
+  const objectTypeLabel = formatCommentObjectType(objectType);
+
+  return {
+    label: buildCommentContextLabel({ objectType, objectId, dataField }),
+    objectTypeLabel,
+    objectReference: objectId ?? "unknown",
+  };
+}
+
 async function buildCommentLink(opts: {
   baseUrl: string;
   projectId: string;
@@ -66,7 +117,14 @@ async function buildCommentLink(opts: {
 export async function handleCommentMentionNotification(
   payload: CommentMentionPayload,
 ) {
-  const { commentId, projectId, mentionedUserIds } = payload;
+  const {
+    commentId,
+    projectId,
+    mentionedUserIds,
+    objectType,
+    objectId,
+    dataField,
+  } = payload;
 
   logger.info(
     `Processing comment mention notification for comment ${commentId} in project ${projectId}`,
@@ -135,6 +193,11 @@ export async function handleCommentMentionNotification(
       // Convert @[DisplayName](user:userId) to @DisplayName
       return truncated.replace(/@\[([^\]]+)\]\(user:[^)]+\)/g, "@$1");
     })();
+    const commentContext = buildCommentContextDetails({
+      objectType: objectType ?? comment.objectType,
+      objectId: objectId ?? comment.objectId,
+      dataField: dataField ?? comment.dataField,
+    });
 
     // Process each mentioned user
     for (const userId of mentionedUserIds) {
@@ -205,6 +268,9 @@ export async function handleCommentMentionNotification(
           mentionedUserEmail: mentionedUser.email,
           authorName,
           projectName: comment.project.name,
+          commentContextLabel: commentContext.label,
+          commentObjectTypeLabel: commentContext.objectTypeLabel,
+          commentObjectReference: commentContext.objectReference,
           commentPreview,
           commentLink,
           settingsLink,

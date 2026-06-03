@@ -13,6 +13,9 @@ type SendCommentMentionEmailParams = {
   mentionedUserEmail: string;
   authorName?: string; // Optional - undefined if author deleted or not project member
   projectName: string;
+  commentContextLabel?: string;
+  commentObjectTypeLabel?: string;
+  commentObjectReference?: string;
   commentPreview: string;
   commentLink: string;
   settingsLink: string;
@@ -24,6 +27,9 @@ export const sendCommentMentionEmail = async ({
   mentionedUserEmail,
   authorName,
   projectName,
+  commentContextLabel,
+  commentObjectTypeLabel,
+  commentObjectReference,
   commentPreview,
   commentLink,
   settingsLink,
@@ -43,6 +49,9 @@ export const sendCommentMentionEmail = async ({
         mentionedUserEmail,
         authorName,
         projectName,
+        commentContextLabel,
+        commentObjectTypeLabel,
+        commentObjectReference,
         commentPreview: safeCommentPreview,
         commentLink,
         settingsLink,
@@ -56,8 +65,8 @@ export const sendCommentMentionEmail = async ({
       : undefined;
 
     const subject = safeAuthorName
-      ? `${safeAuthorName} mentioned you in project ${safeProjectName}`
-      : `You were mentioned in a comment in project ${safeProjectName}`;
+      ? `${safeAuthorName} mentioned you on ${commentContextLabel ?? "an object"} in project ${safeProjectName}`
+      : `You were mentioned on ${commentContextLabel ?? "an object"} in project ${safeProjectName}`;
 
     await mailer.sendMail({
       to: mentionedUserEmail,

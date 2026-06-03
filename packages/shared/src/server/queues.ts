@@ -227,6 +227,9 @@ export const NotificationEventSchema = z.discriminatedUnion("type", [
     type: z.literal("COMMENT_MENTION"),
     commentId: z.string(),
     projectId: z.string(),
+    objectType: z.string().optional(),
+    objectId: z.string().optional(),
+    dataField: z.string().nullable().optional(),
     mentionedUserIds: z.array(z.string()),
   }),
   // Future notification types can be added here
