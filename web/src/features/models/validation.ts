@@ -13,6 +13,10 @@ export const PriceMapInputSchema = z.record(
   UsageTypeSchema,
   PriceSchema.optional(),
 );
+export const UsageEstimateInputSchema = z.record(
+  UsageTypeSchema,
+  z.coerce.number().nonnegative().optional(),
+);
 
 // Output version: filtered to only defined prices
 export const PriceMapSchema = PriceMapInputSchema.transform((obj) => {
@@ -112,6 +116,8 @@ export const FormUpsertModelSchema = z.object({
     .transform((value) => (value === "{}" ? undefined : value))
     .nullish(),
   pricingTiers: z.array(FormPricingTierSchema),
+  monthlyBudget: z.coerce.number().nonnegative().optional(),
+  monthlyUsageEstimate: UsageEstimateInputSchema.optional(),
 });
 
 // Use input type for form (allows optional/default fields from Zod schemas)

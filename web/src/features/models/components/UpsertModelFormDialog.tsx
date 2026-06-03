@@ -92,6 +92,13 @@ export const UpsertModelFormDialog = (({
         tokenizerId: props.modelData.tokenizerId,
         tokenizerConfig: JSON.stringify(props.modelData.tokenizerConfig ?? {}),
         pricingTiers: loadedTiers,
+        monthlyBudget: undefined,
+        monthlyUsageEstimate: Object.fromEntries(
+          Object.keys(loadedTiers[0]?.prices ?? {}).map((usageType) => [
+            usageType,
+            1000000,
+          ]),
+        ),
       };
     } else {
       // CREATE: Start with 1 default tier
@@ -114,6 +121,15 @@ export const UpsertModelFormDialog = (({
             },
           },
         ],
+        monthlyBudget: undefined,
+        monthlyUsageEstimate: Object.fromEntries(
+          Object.keys(
+            props.prefilledModelData?.prices ?? {
+              input: 0.000001,
+              output: 0.000002,
+            },
+          ).map((usageType) => [usageType, 1000000]),
+        ),
       };
     }
   }, [props]);
