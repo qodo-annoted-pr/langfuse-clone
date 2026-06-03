@@ -17,6 +17,10 @@ import { MatchedTierCard } from "./MatchedTierCard";
 import { NoMatchDisplay } from "./NoMatchDisplay";
 import { CheckCircle, SquareArrowOutUpRight } from "lucide-react";
 import Spinner from "@/src/components/design-system/Spinner/Spinner";
+import {
+  calculateModelPriceEstimate,
+  formatUsdEstimate,
+} from "@/src/features/models/utils";
 
 type TestModelMatchDialogProps = {
   projectId: string;
@@ -55,6 +59,14 @@ export function TestModelMatchDialog({
       void refetch();
     }
   };
+
+  const matchedEstimate =
+    data?.matched && data.matchedTier
+      ? calculateModelPriceEstimate({
+          prices: data.matchedTier.prices,
+          usageEstimate: usageDetails,
+        })
+      : null;
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -156,6 +168,49 @@ export function TestModelMatchDialog({
                             </div>
                             <MatchedModelCard model={data.model} />
                             <MatchedTierCard tier={data.matchedTier} />
+                            {matchedEstimate && (
+                              <div className="rounded-lg border p-4">
+                                <div className="mb-3 flex items-center justify-between gap-2">
+                                  <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                                    Estimated request cost
+                                  </div>
+                                  <div className="font-mono text-sm font-semibold">
+                                    {formatUsdEstimate(
+                                      matchedEstimate.totalCost,
+                                    )}
+                                  </div>
+                                </div>
+                                {matchedEstimate.lines.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {matchedEstimate.lines.map((line) => (
+                                      <div
+                                        key={line.usageType}
+                                        className="text-muted-foreground flex items-center justify-between gap-2 text-xs"
+                                      >
+                                        <span>{line.usageType}</span>
+                                        <span className="font-mono">
+                                          {line.usageUnits.toLocaleString()} x{" "}
+                                          {formatUsdEstimate(line.pricePerUnit)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-muted-foreground text-xs">
+                                    Add usage details to preview request cost.
+                                  </div>
+                                )}
+                                {matchedEstimate.missingUsageTypes.length >
+                                  0 && (
+                                  <div className="text-muted-foreground mt-2 text-xs">
+                                    Missing price for{" "}
+                                    {matchedEstimate.missingUsageTypes.join(
+                                      ", ",
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </>
                         ) : (
                           <NoMatchDisplay modelName={modelName} />
