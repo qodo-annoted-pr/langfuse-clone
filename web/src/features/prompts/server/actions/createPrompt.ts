@@ -21,6 +21,7 @@ import {
   extractPlaceholderNames,
 } from "@langfuse/shared/src/server";
 import { promptChangeEventSourcing } from "@/src/features/prompts/server/promptChangeEventSourcing";
+import { normalizePromptPath } from "@/src/features/prompts/utils";
 
 export type CreatePromptParams = CreatePromptTRPCType & {
   createdBy: string;
@@ -242,17 +243,18 @@ export const duplicatePrompt = async ({
   prisma,
   user,
 }: DuplicatePromptParams) => {
+  const normalizedName = normalizePromptPath(name);
   // validate that name is unique in project, uniqueness constraint too permissive as it includes version
   const promptNameExists = await prisma.prompt.findFirst({
     where: {
       projectId,
-      name,
+      name: normalizedName,
     },
   });
 
   if (promptNameExists) {
     throw new InvalidRequestError(
-      `Prompt name ${name} already exists in project ${projectId}`,
+      `Prompt name ${normalizedName} already exists in project ${projectId}`,
     );
   }
 
@@ -296,7 +298,7 @@ export const duplicatePrompt = async ({
 
     return {
       id: newPromptId,
-      name,
+      name: normalizedName,
       version: isSingleVersion ? 1 : prompt.version,
       labels: isSingleVersion
         ? [...new Set([LATEST_PROMPT_LABEL, ...prompt.labels])]
@@ -341,7 +343,7 @@ export const duplicatePrompt = async ({
     where: {
       projectId_name_version: {
         projectId,
-        name,
+        name: normalizedName,
         version: isSingleVersion ? 1 : existingPrompt.version,
       },
     },
@@ -402,8 +404,10 @@ export const duplicateFolder = async ({
   prisma,
   user,
 }: DuplicateFolderParams) => {
-  const escapedTargetPath = escapeSqlLikePattern(targetPath);
-  const escapedSourcePath = escapeSqlLikePattern(sourcePath);
+  const normalizedSourcePath = normalizePromptPath(sourcePath);
+  const normalizedTargetPath = normalizePromptPath(targetPath);
+  const escapedTargetPath = escapeSqlLikePattern(normalizedTargetPath);
+  const escapedSourcePath = escapeSqlLikePattern(normalizedSourcePath);
 
   const existingTargetPrompt = await prisma.prompt.findFirst({
     where: {
@@ -454,7 +458,7 @@ export const duplicateFolder = async ({
   const duplicatedPromptNames = new Map(
     [...promptsByName.keys()].map((originalName) => [
       originalName,
-      `${targetPath}${originalName.slice(sourcePath.length)}`,
+      `${normalizedTargetPath}${originalName.slice(normalizedSourcePath.length)}`,
     ]),
   );
   const allPromptsToCreate: Array<{
@@ -482,7 +486,7 @@ export const duplicateFolder = async ({
 
     const newName =
       duplicatedPromptNames.get(originalName) ??
-      `${targetPath}${originalName.slice(sourcePath.length)}`;
+      `${normalizedTargetPath}${originalName.slice(normalizedSourcePath.length)}`;
 
     const promptsToCopy = isSingleVersion ? [latestVersion] : versions;
 
@@ -563,5 +567,7 @@ export const duplicateFolder = async ({
   return {
     copiedPromptNames: [...duplicatedPromptNames.values()],
     copiedCount: allPromptsToCreate.length,
+    sourcePath: normalizedSourcePath,
+    targetPath: normalizedTargetPath,
   };
 };
