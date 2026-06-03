@@ -49,6 +49,19 @@ export interface GetChannelsResult {
   hasPrivateChannelAccess: boolean;
 }
 
+export interface SlackIntegrationHealth {
+  checkedAt: string;
+  botUserId?: string;
+  teamName?: string;
+  channelCount: number;
+  publicChannelCount: number;
+  privateChannelCount: number;
+  memberChannelCount: number;
+  hasPrivateChannelAccess: boolean;
+  recommendedChannelId?: string;
+  recommendedChannelName?: string;
+}
+
 export interface SlackMessageParams {
   client: WebClient;
   channelId: string;
@@ -431,6 +444,46 @@ export class SlackService {
         `Failed to fetch channels: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
+  }
+
+  /**
+   * Build a small health summary for the current Slack bot.
+   */
+  async getIntegrationHealth(
+    client: WebClient,
+  ): Promise<SlackIntegrationHealth> {
+    const [authResult, channelResult] = await Promise.all([
+      client.auth.test(),
+      this.getChannels(client),
+    ]);
+
+    const channels = channelResult.channels;
+    const publicChannels = channels.filter((channel) => !channel.isPrivate);
+    const privateChannels = channels.filter((channel) => channel.isPrivate);
+    const memberChannels = channels.filter((channel) => channel.isMember);
+    const recommendedChannel =
+      memberChannels.find((channel) => !channel.isPrivate) ??
+      publicChannels[0] ??
+      channels[0];
+
+    logger.debug("Built Slack integration health summary", {
+      teamName: authResult.team,
+      channelCount: channels.length,
+      memberChannelCount: memberChannels.length,
+    });
+
+    return {
+      checkedAt: new Date().toISOString(),
+      botUserId: authResult.user_id,
+      teamName: authResult.team,
+      channelCount: channels.length,
+      publicChannelCount: publicChannels.length,
+      privateChannelCount: privateChannels.length,
+      memberChannelCount: memberChannels.length,
+      hasPrivateChannelAccess: channelResult.hasPrivateChannelAccess,
+      recommendedChannelId: recommendedChannel?.id,
+      recommendedChannelName: recommendedChannel?.name,
+    };
   }
 
   /**

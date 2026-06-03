@@ -34,6 +34,8 @@ interface SlackTestMessageButtonProps {
   showText?: boolean;
   /** Whether the user has access to send test messages */
   hasAccess?: boolean;
+  /** Optional label shown after the message is sent */
+  successChannelLabel?: string;
 }
 
 /**
@@ -53,13 +55,16 @@ export const SlackTestMessageButton: React.FC<SlackTestMessageButtonProps> = ({
   onError,
   showText = true,
   hasAccess = true,
+  successChannelLabel,
 }) => {
   // Test message mutation
   const testMessageMutation = api.slack.sendTestMessage.useMutation({
     onSuccess: (data) => {
       showSuccessToast({
         title: "Test Message Sent",
-        description: "Test message sent successfully to the selected channel.",
+        description: `Test message sent successfully to ${
+          successChannelLabel ?? data.channelInfo.name ?? data.channel
+        }.`,
       });
       onSuccess?.(data.channelInfo);
     },
@@ -77,7 +82,7 @@ export const SlackTestMessageButton: React.FC<SlackTestMessageButtonProps> = ({
       await testMessageMutation.mutateAsync({
         projectId,
         channelId: selectedChannel.id,
-        channelName: selectedChannel.name ?? undefined,
+        channelName: selectedChannel.name || selectedChannel.id,
       });
     } catch {
       // Error handling is done in the mutation

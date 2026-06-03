@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle, AlertCircle } from "lucide-react";
+import { CheckCircle, AlertCircle, Hash, Lock, Users } from "lucide-react";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import {
@@ -70,6 +70,10 @@ export const SlackConnectionCard: React.FC<SlackConnectionCardProps> = ({
     refetchStatus();
     onConnectionChange?.(connected);
   };
+
+  const health = integrationStatus?.isConnected
+    ? integrationStatus.health
+    : undefined;
 
   // Handle loading state
   if (isLoading) {
@@ -196,6 +200,44 @@ export const SlackConnectionCard: React.FC<SlackConnectionCardProps> = ({
             </div>
           )}
         </div>
+
+        {health && (
+          <div className="border-border grid gap-3 rounded-md border p-3 sm:grid-cols-3">
+            <div className="space-y-1">
+              <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                <Hash className="h-3 w-3" />
+                Public
+              </div>
+              <div className="text-sm font-medium">
+                {health.publicChannelCount}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                <Lock className="h-3 w-3" />
+                Private
+              </div>
+              <div className="text-sm font-medium">
+                {health.privateChannelCount}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                <Users className="h-3 w-3" />
+                Joined
+              </div>
+              <div className="text-sm font-medium">
+                {health.memberChannelCount}
+              </div>
+            </div>
+            <div className="text-muted-foreground col-span-full flex flex-wrap gap-2 text-xs">
+              <span>Checked {new Date(health.checkedAt).toLocaleString()}</span>
+              {health.recommendedChannelName && (
+                <span>Suggested #{health.recommendedChannelName}</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Management Actions */}
         <div className="flex gap-2 pt-2">

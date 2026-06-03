@@ -106,6 +106,27 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
     },
   );
 
+  const selectedChannelSummary = useMemo(() => {
+    if (!channelsData?.channels) {
+      return { public: 0, private: 0, joined: 0 };
+    }
+
+    return channelsData.channels.reduce(
+      (summary, channel) => {
+        if (channel.isPrivate) {
+          summary.private += 1;
+        } else {
+          summary.public += 1;
+        }
+        if (channel.isMember) {
+          summary.joined += 1;
+        }
+        return summary;
+      },
+      { public: 0, private: 0, joined: 0 },
+    );
+  }, [channelsData?.channels]);
+
   // Handle refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -140,10 +161,13 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
       );
     }
 
-    // Sort channels: public channels first, then private, then by name
+    // Sort channels: joined channels first, then public/private, then by name
     return [...channels].sort((a, b) => {
+      if (a.isMember !== b.isMember) {
+        return a.isMember ? -1 : 1;
+      }
       if (a.isPrivate !== b.isPrivate) {
-        return a.isPrivate ? 1 : -1;
+        return a.isPrivate ? -1 : 1;
       }
       return a.name.localeCompare(b.name);
     });
@@ -356,9 +380,15 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
 
       {/* Channel stats */}
       {channelsData?.channels && (
-        <div className="text-muted-foreground text-xs">
-          {filteredChannels.length} of {channelsData.channels.length} channels
-          {memberOnly && " (member only)"}
+        <div className="text-muted-foreground flex flex-wrap gap-x-2 gap-y-1 text-xs">
+          <span>
+            {filteredChannels.length} of {channelsData.channels.length}{" "}
+            channels
+          </span>
+          <span>{selectedChannelSummary.public} public</span>
+          <span>{selectedChannelSummary.private} private</span>
+          <span>{selectedChannelSummary.joined} joined</span>
+          {memberOnly && <span>(member only)</span>}
         </div>
       )}
 
