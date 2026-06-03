@@ -55,15 +55,18 @@ export const slackRouter = createTRPCRouter({
             teamName: integration.teamName,
             installUrl: `/api/public/slack/install?projectId=${input.projectId}`,
             error:
-              "Integration is invalid. Please reconnect your Slack workspace.",
+            "Integration is invalid. Please reconnect your Slack workspace.",
           };
         }
+
+        const health = await slackService.getIntegrationHealth(client);
 
         return {
           isConnected: true,
           teamId: integration.teamId,
           teamName: integration.teamName,
           botUserId: integration.botUserId,
+          health,
           installUrl: null,
         };
       } catch (error) {
@@ -266,6 +269,14 @@ export const slackRouter = createTRPCRouter({
                 type: "mrkdwn",
                 text: `*Time:*\n${new Date().toISOString()}`,
               },
+              {
+                type: "mrkdwn",
+                text: `*Workspace:*\n${integration.teamName}`,
+              },
+              {
+                type: "mrkdwn",
+                text: `*Connected bot:*\n${integration.botUserId}`,
+              },
             ],
           },
           {
@@ -326,6 +337,8 @@ export const slackRouter = createTRPCRouter({
             channelId: result.channel,
             channelName: input.channelName,
             messageTs: result.messageTs,
+            teamId: integration.teamId,
+            userId: ctx.session.user.id,
           },
         });
 
@@ -340,6 +353,7 @@ export const slackRouter = createTRPCRouter({
           success: true,
           messageTs: result.messageTs,
           channel: result.channel,
+          teamName: integration.teamName,
           channelInfo,
         };
       } catch (error) {

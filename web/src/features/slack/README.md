@@ -97,6 +97,7 @@ The Slack integration provides:
 - **Direct links**: Jump from Slack messages directly to prompts in Langfuse
 - **Channel configuration**: Set up different notification channels per project
 - **Test messages**: Verify your integration is working correctly
+- **Connection health**: Review channel visibility, joined channel counts, and the most recent bot validation from project settings
 
 ## Development Notes
 
@@ -104,6 +105,7 @@ The Slack integration provides:
 - Webhook endpoints are available at `/api/public/slack/install`
 - OAuth callback is handled at `/api/public/slack/oauth`
 - All Slack API interactions are handled through the `SlackService` in the shared package
+- The connection card refreshes health information with the integration status request, so local testing should use a workspace with enough channels to verify pagination and private-channel fallback behavior
 
 ## Production Deployment
 
