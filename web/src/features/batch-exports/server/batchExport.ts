@@ -5,8 +5,10 @@ import {
   protectedProjectProcedure,
 } from "@/src/server/api/trpc";
 import {
+  BATCH_EXPORT_RETENTION_MS,
   BatchExportStatus,
   CreateBatchExportSchema,
+  getBatchExportExpiresAt,
   paginationZod,
 } from "@langfuse/shared";
 import {
@@ -162,28 +164,53 @@ export const batchExportRouter = createTRPCRouter({
 
       const userMap = new Map(users.map((u) => [u.id, u]));
 
+      const now = new Date().getTime();
       const exportsWithExpiration = exports.map((e) => {
         const { finishedAt, url, ...rest } = e;
 
         let isExpired = false;
+        let expiresAt = e.expiresAt;
+        let timeToExpireMs: number | null = null;
         if (finishedAt) {
           const finishTime = new Date(finishedAt).getTime();
-          const now = new Date().getTime();
-          const oneHourInMs = 60 * 60 * 1000;
-          isExpired = now - finishTime > oneHourInMs;
+          expiresAt = getBatchExportExpiresAt(new Date(finishedAt));
+          timeToExpireMs = finishTime + BATCH_EXPORT_RETENTION_MS - now;
+          isExpired = now - finishTime > BATCH_EXPORT_RETENTION_MS;
         }
 
         return {
           ...rest,
           finishedAt,
+          expiresAt,
+          isExpired,
+          timeToExpireMs,
+          downloadAvailable: Boolean(url) && !isExpired,
           url: isExpired ? "expired" : url,
           user: userMap.get(e.userId) ?? null,
         };
       });
+      const summary = {
+        queued: exportsWithExpiration.filter(
+          (batchExport) => batchExport.status === BatchExportStatus.QUEUED,
+        ).length,
+        processing: exportsWithExpiration.filter(
+          (batchExport) => batchExport.status === BatchExportStatus.PROCESSING,
+        ).length,
+        completed: exportsWithExpiration.filter(
+          (batchExport) => batchExport.status === BatchExportStatus.COMPLETED,
+        ).length,
+        expired: exportsWithExpiration.filter(
+          (batchExport) => batchExport.isExpired,
+        ).length,
+        downloadable: exportsWithExpiration.filter(
+          (batchExport) => batchExport.downloadAvailable,
+        ).length,
+      };
 
       return {
         exports: exportsWithExpiration,
         totalCount,
+        summary,
       };
     }),
 });

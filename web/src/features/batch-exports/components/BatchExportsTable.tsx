@@ -6,7 +6,7 @@ import { type BatchExport } from "@langfuse/shared";
 import { StatusBadge } from "@/src/components/layouts/status-badge";
 import { NumberParam, useQueryParams, withDefault } from "use-query-params";
 import { ActionButton } from "@/src/components/ActionButton";
-import { DownloadIcon, InfoIcon } from "lucide-react";
+import { DownloadIcon, InfoIcon, TimerIcon } from "lucide-react";
 import { Avatar, AvatarImage } from "@/src/components/ui/avatar";
 import {
   Tooltip,
@@ -27,6 +27,34 @@ import {
 } from "@/src/components/ui/alert-dialog";
 import { useState } from "react";
 import { useHasProjectAccess } from "@/src/features/rbac/utils/checkProjectAccess";
+
+type BatchExportRow = BatchExport & {
+  isExpired?: boolean;
+  downloadAvailable?: boolean;
+  timeToExpireMs?: number | null;
+};
+
+const formatTimeToExpire = (timeToExpireMs?: number | null) => {
+  if (timeToExpireMs == null) return "-";
+
+  const minutes = Math.round(timeToExpireMs / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+
+  return `${Math.round(minutes / 60)}h`;
+};
+
+const ExportSummaryCard = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) => (
+  <div className="rounded-md border bg-muted/20 px-3 py-2">
+    <div className="text-muted-foreground text-xs">{label}</div>
+    <div className="mt-1 text-lg font-semibold">{value}</div>
+  </div>
+);
 
 export function BatchExportsTable(props: { projectId: string }) {
   const [paginationState, setPaginationState] = useQueryParams({
@@ -116,6 +144,27 @@ export function BatchExportsTable(props: { projectId: string }) {
           <ActionButton href={url} icon={<DownloadIcon size={16} />} size="sm">
             Download
           </ActionButton>
+        );
+      },
+    },
+    {
+      accessorKey: "timeToExpireMs",
+      id: "expires",
+      header: "Expires In",
+      size: 110,
+      cell: ({ row }) => {
+        const timeToExpireMs = row.getValue("expires") as number | null;
+        const isExpired = (row.original as BatchExportRow).isExpired;
+
+        if (isExpired) {
+          return <span className="text-muted-foreground">Expired</span>;
+        }
+
+        return (
+          <div className="flex items-center gap-1 text-sm">
+            <TimerIcon className="text-muted-foreground size-3" />
+            <span>{formatTimeToExpire(timeToExpireMs)}</span>
+          </div>
         );
       },
     },
@@ -220,10 +269,21 @@ export function BatchExportsTable(props: { projectId: string }) {
         );
       },
     },
-  ] as LangfuseColumnDef<BatchExport>[];
+  ] as LangfuseColumnDef<BatchExportRow>[];
+
+  const summary = batchExports.data?.summary;
 
   return (
     <>
+      {summary && (
+        <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+          <ExportSummaryCard label="Queued" value={summary.queued} />
+          <ExportSummaryCard label="Processing" value={summary.processing} />
+          <ExportSummaryCard label="Completed" value={summary.completed} />
+          <ExportSummaryCard label="Downloadable" value={summary.downloadable} />
+          <ExportSummaryCard label="Expired" value={summary.expired} />
+        </div>
+      )}
       <DataTable
         tableName={"batchExports"}
         columns={columns}

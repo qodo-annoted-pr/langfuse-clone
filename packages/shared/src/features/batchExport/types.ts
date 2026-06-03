@@ -21,6 +21,16 @@ export enum BatchExportFileFormat {
   JSONL = "JSONL",
 }
 
+export const BATCH_EXPORT_RETENTION_HOURS = 1;
+export const BATCH_EXPORT_RETENTION_MS =
+  BATCH_EXPORT_RETENTION_HOURS * 60 * 60 * 1000;
+
+export const getBatchExportExpiresAt = (finishedAt: Date | null) => {
+  if (!finishedAt) return null;
+
+  return new Date(finishedAt.getTime() + BATCH_EXPORT_RETENTION_MS);
+};
+
 // Use shared BatchTableNames enum for consistency across batch operations
 // Keep BatchExportTableName as alias for backward compatibility
 export { BatchTableNames as BatchExportTableName };
