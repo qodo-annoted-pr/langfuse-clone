@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { type UseFormReturn } from "react-hook-form";
+import { normalizePromptPath } from "@/src/features/prompts/utils";
 
 interface UsePromptNameValidationProps {
   currentName: string | undefined;
@@ -15,9 +16,10 @@ export const usePromptNameValidation = ({
   useEffect(() => {
     if (!currentName || !allPrompts) return;
 
+    const normalizedName = normalizePromptPath(currentName);
     const isNewPrompt = !allPrompts
       ?.map((prompt) => prompt.value)
-      .includes(currentName);
+      .includes(normalizedName);
 
     if (!isNewPrompt) {
       form.setError("name", { message: "Prompt name already exists." });

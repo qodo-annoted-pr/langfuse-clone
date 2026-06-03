@@ -1,7 +1,7 @@
 import { Button } from "@/src/components/ui/button";
 import { useHasProjectAccess } from "@/src/features/rbac/utils/checkProjectAccess";
 import { api } from "@/src/utils/api";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogBody,
@@ -30,6 +30,11 @@ import useProjectIdFromURL from "@/src/hooks/useProjectIdFromURL";
 import { Copy } from "lucide-react";
 import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePostHogClientCapture";
 import { useEntitlementLimit } from "@/src/features/entitlements/hooks";
+import {
+  buildDuplicateFolderTargetPath,
+  normalizePromptPath,
+  summarizeDuplicateFolder,
+} from "@/src/features/prompts/utils";
 
 enum CopySettings {
   LATEST_ONLY = "latest_only",
@@ -50,15 +55,57 @@ export function DuplicateFolder({ folderPath }: { folderPath: string }) {
   const hasAccess = useHasProjectAccess({ projectId, scope: "prompts:CUD" });
   const promptLimit = useEntitlementLimit("prompt-management-count-prompts");
   const capture = usePostHogClientCapture();
+  const allPromptNames = api.prompts.allNames.useQuery(
+    { projectId: projectId as string },
+    {
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      enabled: hasAccess && isOpen,
+    },
+  );
+  const suggestedTargetPath = useMemo(
+    () =>
+      buildDuplicateFolderTargetPath({
+        folderPath,
+        existingNames: allPromptNames.data?.map((prompt) => ({
+          value: prompt.name,
+        })),
+      }),
+    [folderPath, allPromptNames.data],
+  );
+  const existingPromptNames = useMemo(
+    () => allPromptNames.data?.map((prompt) => prompt.name),
+    [allPromptNames.data],
+  );
 
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      targetPath: `${folderPath}-copy`,
+      targetPath: suggestedTargetPath,
       copySettings: CopySettings.LATEST_ONLY,
       rewritePromptReferences: false,
     },
   });
+  const targetPath = form.watch("targetPath");
+  const copySettings = form.watch("copySettings");
+  const rewritePromptReferences = form.watch("rewritePromptReferences");
+  const duplicateSummary = useMemo(
+    () =>
+      summarizeDuplicateFolder({
+        sourcePath: folderPath,
+        targetPath,
+        existingNames: existingPromptNames,
+        rewritePromptReferences,
+      }),
+    [folderPath, targetPath, existingPromptNames, rewritePromptReferences],
+  );
+
+  useEffect(() => {
+    if (isOpen && !form.formState.isDirty) {
+      form.setValue("targetPath", suggestedTargetPath);
+    }
+  }, [form, isOpen, suggestedTargetPath]);
 
   const mutDuplicateFolder = api.prompts.duplicateFolder.useMutation({
     onSuccess: () => {
@@ -72,24 +119,14 @@ export function DuplicateFolder({ folderPath }: { folderPath: string }) {
     },
   });
 
-  const allPromptNames = api.prompts.allNames.useQuery(
-    { projectId: projectId as string },
-    {
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      enabled: hasAccess && isOpen,
-    },
-  );
-
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (!projectId) return;
     capture("prompt_detail:duplicate_form_submit");
     setError(null);
     mutDuplicateFolder.mutate({
       projectId,
-      sourcePath: folderPath,
-      targetPath: values.targetPath,
+      sourcePath: normalizePromptPath(folderPath),
+      targetPath: normalizePromptPath(values.targetPath),
       isSingleVersion: values.copySettings === CopySettings.LATEST_ONLY,
       rewritePromptReferences: values.rewritePromptReferences,
     });
@@ -149,6 +186,14 @@ export function DuplicateFolder({ folderPath }: { folderPath: string }) {
                     <FormControl>
                       <Input {...field} type="text" />
                     </FormControl>
+                    <FormDescription>
+                      Target path will be normalized to{" "}
+                      <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">
+                        {duplicateSummary.normalizedTargetPath ||
+                          suggestedTargetPath}
+                      </code>
+                      .
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -226,6 +271,41 @@ export function DuplicateFolder({ folderPath }: { folderPath: string }) {
                     references continue to work.
                   </p>
                 )}
+              <div className="bg-muted/40 space-y-2 rounded-md border p-3 text-sm">
+                <div className="font-medium">Duplicate summary</div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <dt className="text-muted-foreground">Prompts in source</dt>
+                  <dd>{duplicateSummary.promptCount}</dd>
+                  <dt className="text-muted-foreground">Nested prompts</dt>
+                  <dd>{duplicateSummary.nestedPromptCount}</dd>
+                  <dt className="text-muted-foreground">Target collisions</dt>
+                  <dd>{duplicateSummary.collisionCount}</dd>
+                  <dt className="text-muted-foreground">References rewritten</dt>
+                  <dd>{duplicateSummary.rewrittenReferenceCount}</dd>
+                </dl>
+                {duplicateSummary.previewNames.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-muted-foreground text-xs">
+                      Preview
+                    </div>
+                    <ul className="space-y-1">
+                      {duplicateSummary.previewNames.map((name) => (
+                        <li
+                          key={name}
+                          className="font-mono text-xs break-all"
+                        >
+                          {name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {copySettings === CopySettings.ALL_VERSIONS && (
+                  <p className="text-muted-foreground text-xs">
+                    All prompt versions and labels will be copied.
+                  </p>
+                )}
+              </div>
               {error && (
                 <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   <p className="font-medium">Error:</p>
@@ -241,7 +321,8 @@ export function DuplicateFolder({ folderPath }: { folderPath: string }) {
                   !!(
                     promptLimit &&
                     allPromptNames.data &&
-                    allPromptNames.data.length >= promptLimit
+                    allPromptNames.data.length + duplicateSummary.promptCount >=
+                      promptLimit
                   )
                 }
                 className="mt-auto w-full"

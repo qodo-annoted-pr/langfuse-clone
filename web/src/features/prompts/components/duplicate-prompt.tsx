@@ -15,7 +15,7 @@ import {
 import { ActionButton } from "@/src/components/ActionButton";
 import { usePostHogClientCapture } from "@/src/features/posthog-analytics/usePostHogClientCapture";
 import { useEntitlementLimit } from "@/src/features/entitlements/hooks";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Form,
   FormControl,
@@ -30,6 +30,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/src/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/src/components/ui/radio-group";
 import { usePromptNameValidation } from "@/src/features/prompts/hooks/usePromptNameValidation";
+import {
+  buildDuplicatePromptName,
+  normalizePromptPath,
+  summarizeDuplicatePromptName,
+} from "@/src/features/prompts/utils";
 
 enum CopySettings {
   SINGLE_VERSION = "single_version",
@@ -46,19 +51,45 @@ const DuplicatePromptForm: React.FC<{
   promptId: string;
   promptName: string;
   promptVersion: number;
+  allPromptNames: { value: string }[] | undefined;
   onFormSuccess: () => void;
-}> = ({ projectId, promptId, promptName, promptVersion, onFormSuccess }) => {
+}> = ({
+  projectId,
+  promptId,
+  promptName,
+  promptVersion,
+  allPromptNames,
+  onFormSuccess,
+}) => {
   const capture = usePostHogClientCapture();
   const router = useRouter();
+  const initialName = useMemo(
+    () =>
+      buildDuplicatePromptName({
+        promptName,
+        existingNames: allPromptNames,
+      }),
+    [promptName, allPromptNames],
+  );
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: promptName + "-copy",
+      name: initialName,
       isCopySingleVersion: CopySettings.SINGLE_VERSION,
     },
   });
 
   const currentName = form.watch("name");
+  const copySettings = form.watch("isCopySingleVersion");
+  const duplicateSummary = useMemo(
+    () =>
+      summarizeDuplicatePromptName({
+        promptName,
+        targetName: currentName,
+        existingNames: allPromptNames,
+      }),
+    [promptName, currentName, allPromptNames],
+  );
 
   const utils = api.useUtils();
   const duplicatePrompt = api.prompts.duplicatePrompt.useMutation({
@@ -77,6 +108,7 @@ const DuplicatePromptForm: React.FC<{
         ...values,
         projectId: projectId,
         promptId: promptId,
+        name: normalizePromptPath(values.name),
         isSingleVersion:
           values.isCopySingleVersion === CopySettings.SINGLE_VERSION,
       })
@@ -89,21 +121,9 @@ const DuplicatePromptForm: React.FC<{
       });
   }
 
-  const allPrompts = api.prompts.filterOptions.useQuery(
-    {
-      projectId: projectId,
-    },
-    {
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      staleTime: Infinity,
-    },
-  ).data?.name;
-
   usePromptNameValidation({
     currentName,
-    allPrompts,
+    allPrompts: allPromptNames,
     form,
   });
 
@@ -123,6 +143,35 @@ const DuplicatePromptForm: React.FC<{
                 <FormControl>
                   <Input {...field} type="text" />
                 </FormControl>
+                <div className="text-muted-foreground space-y-1 text-xs">
+                  <p>
+                    Normalized name:{" "}
+                    <code className="bg-muted rounded px-1 py-0.5">
+                      {duplicateSummary.normalizedName}
+                    </code>
+                  </p>
+                  <p>
+                    Suggested available name:{" "}
+                    <button
+                      type="button"
+                      className="font-medium underline"
+                      onClick={() =>
+                        form.setValue("name", duplicateSummary.suggestedName, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                    >
+                      {duplicateSummary.suggestedName}
+                    </button>
+                  </p>
+                  {duplicateSummary.promptCountInTargetFolder > 0 && (
+                    <p>
+                      Target folder currently contains{" "}
+                      {duplicateSummary.promptCountInTargetFolder} prompts.
+                    </p>
+                  )}
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -158,6 +207,11 @@ const DuplicatePromptForm: React.FC<{
                     </FormItem>
                   </RadioGroup>
                 </FormControl>
+                <p className="text-muted-foreground text-xs">
+                  {copySettings === CopySettings.SINGLE_VERSION
+                    ? "The copied prompt starts at version 1 and keeps the latest label."
+                    : "All versions are copied with their original version numbers and labels."}
+                </p>
                 <FormMessage />
               </FormItem>
             )}
@@ -229,6 +283,9 @@ export const DuplicatePromptButton: React.FC<{
           promptId={promptId}
           promptName={promptName}
           promptVersion={promptVersion}
+          allPromptNames={allPromptNames.data?.map((prompt) => ({
+            value: prompt.name,
+          }))}
           onFormSuccess={() => setOpen(false)}
         />
       </DialogContent>

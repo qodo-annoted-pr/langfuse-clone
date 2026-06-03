@@ -41,6 +41,7 @@ import {
 import { aggregateScores } from "@/src/features/scores/lib/aggregateScores";
 import { TRPCError } from "@trpc/server";
 import { promptChangeEventSourcing } from "@/src/features/prompts/server/promptChangeEventSourcing";
+import { normalizePromptPath } from "@/src/features/prompts/utils";
 
 const buildPathPrefixFilter = (pathPrefix?: string): Prisma.Sql => {
   if (!pathPrefix) {
@@ -366,7 +367,7 @@ export const promptRouter = createTRPCRouter({
       const prompt = await duplicatePrompt({
         projectId: input.projectId,
         promptId: input.promptId,
-        name: input.name,
+        name: normalizePromptPath(input.name),
         isSingleVersion: input.isSingleVersion,
         createdBy: ctx.session.user.id,
         prisma: ctx.prisma,
@@ -387,7 +388,13 @@ export const promptRouter = createTRPCRouter({
           resourceType: "prompt",
           resourceId: prompt.id,
           action: "create",
-          after: prompt,
+          after: {
+            ...prompt,
+            duplicatedFromPromptId: input.promptId,
+            copiedVersionMode: input.isSingleVersion
+              ? "single_version"
+              : "all_versions",
+          },
         },
         ctx.prisma,
       );
@@ -418,8 +425,8 @@ export const promptRouter = createTRPCRouter({
       // protected labels in both duplication flows instead of diverging here.
       const result = await duplicateFolder({
         projectId: input.projectId,
-        sourcePath: input.sourcePath,
-        targetPath: input.targetPath,
+        sourcePath: normalizePromptPath(input.sourcePath),
+        targetPath: normalizePromptPath(input.targetPath),
         isSingleVersion: input.isSingleVersion,
         rewritePromptReferences: input.rewritePromptReferences,
         createdBy: ctx.session.user.id,
@@ -435,9 +442,15 @@ export const promptRouter = createTRPCRouter({
         {
           session: ctx.session,
           resourceType: "prompt",
-          resourceId: input.targetPath,
+          resourceId: normalizePromptPath(input.targetPath),
           action: "create",
-          after: result,
+          after: {
+            ...result,
+            copiedVersionMode: input.isSingleVersion
+              ? "latest_only"
+              : "all_versions",
+            rewritePromptReferences: Boolean(input.rewritePromptReferences),
+          },
         },
         ctx.prisma,
       );
