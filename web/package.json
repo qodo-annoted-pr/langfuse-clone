@@ -162,7 +162,7 @@
     "streamdown": "^2.5.0",
     "stripe": "^18.5.0",
     "superjson": "2.2.2",
-    "tailwind-merge": "^3.5.0",
+    "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
     "use-query-params": "^2.2.2",
     "uuid": "^14.0.0",
